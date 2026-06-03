@@ -3,7 +3,8 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 const gifts = [
@@ -27,14 +28,11 @@ const gifts = [
 async function seed() {
   try {
     const client = await pool.connect();
-    
-    await client.query('DROP TABLE IF EXISTS gifts CASCADE');
-    await client.query('DROP TABLE IF EXISTS admin_users CASCADE');
-    
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS gifts (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
+        name VARCHAR(100) NOT NULL UNIQUE,
         link TEXT,
         status VARCHAR(20) DEFAULT 'disponible' CHECK (status IN ('disponible', 'elegido')),
         image_url TEXT,
@@ -42,7 +40,7 @@ async function seed() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_users (
         id SERIAL PRIMARY KEY,
@@ -51,30 +49,50 @@ async function seed() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
-    for (const gift of gifts) {
-      await client.query(
-        'INSERT INTO gifts (name, link, status) VALUES ($1, $2, $3)',
-        [gift.name, gift.link, gift.status]
-      );
+
+    const giftsCheck = await client.query('SELECT COUNT(*) FROM gifts');
+    const giftsCount = parseInt(giftsCheck.rows[0].count);
+
+    if (giftsCount === 0) {
+      for (const gift of gifts) {
+        await client.query(
+          'INSERT INTO gifts (name, link, status) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING',
+          [gift.name, gift.link, gift.status]
+        );
+      }
+      console.log(` ${gifts.length} gifts seeded`);
+    } else {
+      console.log(`📦 ${giftsCount} gifts already exist, skipping seed`);
     }
-    
-    const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
-    await client.query(
-      'INSERT INTO admin_users (username, password_hash) VALUES ($1, $2)',
-      [process.env.ADMIN_USERNAME || 'admin', passwordHash]
-    );
-    
-    console.log('✅ Database seeded successfully!');
-    console.log(`📦 ${gifts.length} gifts added`);
-    console.log(`👤 Admin user created: ${process.env.ADMIN_USERNAME || 'admin'}`);
-    
+
+    const adminCheck = await client.query('SELECT COUNT(*) FROM admin_users');
+    const adminCount = parseInt(adminCheck.rows[0].count);
+
+    if (adminCount === 0) {
+      const passwordHash = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10);
+      await client.query(
+        'INSERT INTO admin_users (username, password_hash) VALUES ($1, $2)',
+        [process.env.ADMIN_USERNAME || 'admin', passwordHash]
+      );
+      console.log(`👤 Admin user created: ${process.env.ADMIN_USERNAME || 'admin'}`);
+    } else {
+      console.log('👤 Admin user already exists, skipping');
+    }
+
     client.release();
-    process.exit(0);
   } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    process.exit(1);
+    console.error('❌ Seed error:', error.message);
   }
 }
 
-seed();
+if (require.main === module) {
+  seed().then(() => {
+    console.log('✅ Seed completed');
+    process.exit(0);
+  }).catch((error) => {
+    console.error('❌ Fatal seed error:', error);
+    process.exit(1);
+  });
+}
+
+module.exports = seed;

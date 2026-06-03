@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const seed = require('./config/seed');
 
 const authRoutes = require('./routes/authRoutes');
 const giftRoutes = require('./routes/giftRoutes');
@@ -25,7 +26,12 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend/public/index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`🎉 Server running on http://localhost:${PORT}`);
-  console.log(` Admin panel: http://localhost:${PORT}/admin-florencia-2025`);
+seed().then(() => {
+  app.listen(PORT, () => {
+    console.log(` Server running on http://localhost:${PORT}`);
+    console.log(`🔐 Admin panel: http://localhost:${PORT}/admin-florencia-2025`);
+  });
+}).catch((error) => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
 });
