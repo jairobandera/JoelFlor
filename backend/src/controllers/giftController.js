@@ -1,12 +1,10 @@
-const db = require('../config/database');
+const dataStore = require('../config/dataStore');
 const cheerio = require('cheerio');
 
 const getAllGifts = async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT * FROM gifts ORDER BY id ASC'
-    );
-    res.json(result.rows);
+    const gifts = await dataStore.getAllGifts();
+    res.json(gifts);
   } catch (error) {
     console.error('Error fetching gifts:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -16,16 +14,13 @@ const getAllGifts = async (req, res) => {
 const getGiftById = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.query(
-      'SELECT * FROM gifts WHERE id = $1',
-      [id]
-    );
+    const gift = await dataStore.getGiftById(id);
 
-    if (result.rows.length === 0) {
+    if (!gift) {
       return res.status(404).json({ error: 'Gift not found.' });
     }
 
-    res.json(result.rows[0]);
+    res.json(gift);
   } catch (error) {
     console.error('Error fetching gift:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -40,12 +35,8 @@ const createGift = async (req, res) => {
       return res.status(400).json({ error: 'Gift name is required.' });
     }
 
-    const result = await db.query(
-      'INSERT INTO gifts (name, link, status, image_url) VALUES ($1, $2, $3, $4) RETURNING *',
-      [name, link || null, status || 'disponible', image_url || null]
-    );
-
-    res.status(201).json(result.rows[0]);
+    const gift = await dataStore.createGift({ name, link, status, image_url });
+    res.status(201).json(gift);
   } catch (error) {
     console.error('Error creating gift:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -57,17 +48,13 @@ const updateGift = async (req, res) => {
     const { id } = req.params;
     const { name, link, status, image_url } = req.body;
 
-    const existing = await db.query('SELECT * FROM gifts WHERE id = $1', [id]);
-    if (existing.rows.length === 0) {
+    const existing = await dataStore.getGiftById(id);
+    if (!existing) {
       return res.status(404).json({ error: 'Gift not found.' });
     }
 
-    const result = await db.query(
-      'UPDATE gifts SET name = COALESCE($1, name), link = COALESCE($2, link), status = COALESCE($3, status), image_url = COALESCE($4, image_url), updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-      [name, link, status, image_url, id]
-    );
-
-    res.json(result.rows[0]);
+    const updated = await dataStore.updateGift(id, { name, link, status, image_url });
+    res.json(updated);
   } catch (error) {
     console.error('Error updating gift:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -78,16 +65,13 @@ const deleteGift = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await db.query(
-      'DELETE FROM gifts WHERE id = $1 RETURNING *',
-      [id]
-    );
+    const deleted = await dataStore.deleteGift(id);
 
-    if (result.rows.length === 0) {
+    if (!deleted) {
       return res.status(404).json({ error: 'Gift not found.' });
     }
 
-    res.json({ message: 'Gift deleted successfully.', gift: result.rows[0] });
+    res.json({ message: 'Gift deleted successfully.', gift: deleted });
   } catch (error) {
     console.error('Error deleting gift:', error);
     res.status(500).json({ error: 'Internal server error.' });
@@ -114,22 +98,16 @@ const fetchProductImage = async (req, res) => {
     let imageUrl = null;
 
     const ogImage = $('meta[property="og:image"]').attr('content');
-    if (ogImage) {
-      imageUrl = ogImage;
-    }
+    if (ogImage) imageUrl = ogImage;
 
     if (!imageUrl) {
       const twitterImage = $('meta[name="twitter:image"]').attr('content');
-      if (twitterImage) {
-        imageUrl = twitterImage;
-      }
+      if (twitterImage) imageUrl = twitterImage;
     }
 
     if (!imageUrl) {
       const mainImage = $('img.andes-carousel__slide-image').first().attr('src');
-      if (mainImage) {
-        imageUrl = mainImage;
-      }
+      if (mainImage) imageUrl = mainImage;
     }
 
     if (!imageUrl) {
