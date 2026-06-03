@@ -153,7 +153,7 @@ function renderGifts() {
             ✏️
           </button>
           <button class="btn-icon delete" onclick="deleteGift(${gift.id})" title="Eliminar">
-            ️
+            🗑️
           </button>
         </div>
       </td>
