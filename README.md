@@ -6,14 +6,13 @@ Aplicación web para gestionar la lista de regalos del casamiento.
 
 - **Frontend**: HTML5, CSS3, Vanilla JS
 - **Backend**: Node.js + Express
-- **Base de datos**: PostgreSQL
-- **Package manager**: pnpm
+- **Base de datos**: PostgreSQL (Neon - gratis)
+- **Package manager**: npm
 
 ## Requisitos
 
 - Node.js 18+
-- pnpm
-- PostgreSQL
+- Cuenta gratuita en [Neon](https://neon.tech) para la base de datos PostgreSQL
 
 ## Setup Local
 
@@ -21,7 +20,7 @@ Aplicación web para gestionar la lista de regalos del casamiento.
 
 ```bash
 cd backend
-pnpm install
+npm install
 ```
 
 ### 2. Configurar variables de entorno
@@ -30,29 +29,22 @@ Copiar `.env.example` a `.env` y ajustar:
 
 ```env
 PORT=3000
-DATABASE_URL=postgresql://user:password@localhost:5432/florence_wedding
+DATABASE_URL=postgresql://user:password@host/neondb?sslmode=require
 JWT_SECRET=tu-clave-secreta
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=tu-password
 ```
 
-### 3. Crear base de datos
+### 3. Crear base de datos en Neon
 
-```sql
-CREATE DATABASE florence_wedding;
-```
+1. Crear cuenta gratuita en [neon.tech](https://neon.tech)
+2. Crear un proyecto y copiar el `DATABASE_URL`
+3. Las tablas y datos iniciales se crean automáticamente al iniciar el servidor
 
-### 4. Ejecutar seed
-
-```bash
-cd backend
-pnpm seed
-```
-
-### 5. Iniciar servidor
+### 4. Iniciar servidor
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 - **Vista invitados**: http://localhost:3000
@@ -65,11 +57,14 @@ pnpm dev
 1. Crear nuevo Web Service en Render
 2. Conectar repo
 3. Configurar:
-   - Build: `cd backend && pnpm install`
-   - Start: `cd backend && pnpm start`
-4. Agregar variables de entorno
-5. Crear PostgreSQL database en Render
-6. Actualizar `DATABASE_URL` en variables
+    - Build: `cd backend && npm install`
+    - Start: `cd backend && npm start`
+4. Agregar variables de entorno:
+    - `DATABASE_URL` (de Neon)
+    - `JWT_SECRET`
+    - `ADMIN_USERNAME`
+    - `ADMIN_PASSWORD`
+5. Las tablas y datos se crean automáticamente al iniciar
 
 ### Frontend
 
